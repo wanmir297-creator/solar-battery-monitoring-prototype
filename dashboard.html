@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar Battery Monitor | Prototype Demo</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#10243a;background:#f4f7fb}
+*{box-sizing:border-box}body{margin:0}.top{background:#10243a;color:white;padding:26px clamp(18px,5vw,56px)}
+.kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9ed7ff;font-weight:800}
+h1{margin:8px 0;font-size:clamp(25px,4vw,38px)}.sub{color:#d1dce8;max-width:760px;line-height:1.5}
+.wrap{max-width:1100px;margin:24px auto;padding:0 18px}.banner{padding:13px 16px;border-radius:12px;background:#fff4d9;color:#754c00;border:1px solid #f0d28b;margin-bottom:18px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.card{background:white;border:1px solid #e0e7ef;border-radius:16px;padding:20px;box-shadow:0 4px 14px #14253b08}
+.label{font-size:13px;color:#617186;font-weight:700}.value{font-size:34px;font-weight:850;margin:12px 0 4px;letter-spacing:-.04em}.unit{font-size:14px;color:#68788c}.pill{display:inline-block;padding:6px 10px;border-radius:99px;font-size:12px;font-weight:800;background:#e2f7eb;color:#087744}
+.pill.warn{background:#fff0d8;color:#8a4b00}.pill.bad{background:#ffe3e5;color:#b4232e}
+.panel{margin-top:16px}.panel h2{font-size:18px;margin:0 0 12px}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+button{border:0;border-radius:10px;padding:11px 14px;background:#1457a6;color:white;font-weight:750;cursor:pointer}button.secondary{background:#e7edf5;color:#233b55}button.danger{background:#b4232e}
+.statusline{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.statusbig{font-size:21px;font-weight:850;margin:8px 0}
+.log{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;background:#101d2d;color:#d8e8fa;padding:14px;border-radius:12px;min-height:78px;white-space:pre-wrap}
+footer{padding:24px 0 36px;color:#6a7a8e;font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="kicker">University Hackathon 2026 · Prototype</div>
+  <h1>Solar Battery Monitoring &amp; Protection</h1>
+  <div class="sub">Live-style dashboard concept for solar-powered community lighting. Demonstrates battery readings, rule-based alerts, and automatic load cut-off logic.</div>
+</header>
+<main class="wrap">
+  <div class="banner"><strong>Simulation mode:</strong> these values are generated in this page and are not readings from a real battery or ESP32.</div>
+  <section class="grid">
+    <article class="card"><div class="label">Battery voltage</div><div class="value" id="voltage">12.7</div><div class="unit">volts (V)</div><p><span class="pill" id="voltagePill">Within demo range</span></p></article>
+    <article class="card"><div class="label">Battery temperature</div><div class="value" id="temp">31.0</div><div class="unit">degrees Celsius (°C)</div><p><span class="pill" id="tempPill">Normal</span></p></article>
+    <article class="card"><div class="label">Load output</div><div class="value" id="load">ON</div><div class="unit">DC lamp relay state</div><p><span class="pill" id="loadPill">Load connected</span></p></article>
+    <article class="card"><div class="label">Current</div><div class="value" id="current">0.8</div><div class="unit">amperes (A) · simulated</div><p><span class="pill">Demo sensor</span></p></article>
+  </section>
+  <section class="card panel">
+    <div class="statusline"><div><div class="label">System status</div><div class="statusbig" id="status">NORMAL — monitoring</div></div><span class="pill" id="systemPill">PROTECTION READY</span></div>
+    <div class="actions">
+      <button onclick="simulate('low')">Simulate low battery</button>
+      <button class="danger" onclick="simulate('hot')">Simulate high temperature</button>
+      <button class="secondary" onclick="simulate('both')">Simulate both faults</button>
+      <button class="secondary" onclick="resetDemo()">Reset demo</button>
+    </div>
+  </section>
+  <section class="card panel">
+    <h2>Event log</h2>
+    <div class="log" id="log">[START] Demo dashboard initialized.\n[INFO] No real hardware connected.</div>
+  </section>
+  <footer>Prototype limitation: the dashboard is a visual simulation. Physical cut-off requires a correctly rated DC relay/MOSFET or suitable protection device, correct wiring, fuse, and bench validation. Thresholds shown are illustrative for a 12 V lead-acid demo; use the battery manufacturer's limits. Do not use this page as a safety system.</footer>
+</main>
+<script>
+const state={voltage:12.7,temp:31,current:0.8,low:false,hot:false};
+function log(msg){const el=document.getElementById('log');el.textContent+=`\n[${new Date().toLocaleTimeString()}] ${msg}`;el.scrollTop=el.scrollHeight}
+function pill(id,text,kind='ok'){const el=document.getElementById(id);el.textContent=text;el.className='pill'+(kind==='warn'?' warn':kind==='bad'?' bad':'')}
+function render(){
+ document.getElementById('voltage').textContent=state.voltage.toFixed(2);
+ document.getElementById('temp').textContent=state.temp.toFixed(1);
+ document.getElementById('current').textContent=state.current.toFixed(2);
+ const cutoff=state.low||state.hot;
+ document.getElementById('load').textContent=cutoff?'OFF':'ON';
+ pill('voltagePill',state.low?'LOW VOLTAGE':'Within demo range',state.low?'bad':'ok');
+ pill('tempPill',state.hot?'HIGH TEMPERATURE':'Normal',state.hot?'bad':'ok');
+ pill('loadPill',cutoff?'Load disconnected':'Load connected',cutoff?'bad':'ok');
+ pill('systemPill',cutoff?'CUT-OFF ACTIVE':'PROTECTION READY',cutoff?'bad':'ok');
+ let status='NORMAL — monitoring';
+ if(state.low&&state.hot)status='CUT-OFF — low battery and high temperature';
+ else if(state.low)status='CUT-OFF — battery voltage below threshold';
+ else if(state.hot)status='CUT-OFF — temperature above threshold';
+ document.getElementById('status').textContent=status;
+}
+function simulate(type){
+ if(type==='low'){state.voltage=11.5;state.temp=31;state.low=true;state.hot=false;log('LOW VOLTAGE: demo threshold crossed; load cut-off activated.')}
+ if(type==='hot'){state.voltage=12.5;state.temp=58;state.low=false;state.hot=true;log('HIGH TEMPERATURE: demo threshold crossed; load cut-off activated.')}
+ if(type==='both'){state.voltage=11.4;state.temp=59;state.low=true;state.hot=true;log('MULTIPLE FAULTS: cut-off active until recovery conditions are met.')}
+ render();
+}
+function resetDemo(){state.voltage=12.7;state.temp=31;state.current=0.8;state.low=false;state.hot=false;render();log('RESET: normal simulated conditions restored.')}
+render();
+</script>
+</body>
+</html>
